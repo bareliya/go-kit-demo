@@ -1,38 +1,35 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	demo "github.com/go-kit-demo/demo_pb"
+	endpoints "github.com/go-kit-demo/endpopints"
+	"github.com/go-kit-demo/services"
+	"github.com/go-kit-demo/transports"
+	"github.com/go-kit/log"
 	"google.golang.org/grpc"
-	"log"
+
 	"net"
+	"os"
 )
 
 func main() {
 
 	listener, err := net.Listen("tcp", ":3000")
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		panic(err)
 	}
 	server := grpc.NewServer()
-	var g GreeterServer
-	demo.RegisterGreeterServer(server, &g)
-	log.Println("gRPC server is running on port 3000")
+
+	logger := log.NewJSONLogger(os.Stdout)
+	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
+	s := services.NewService(logger)
+	endp := endpoints.MakeEndpoints(s)
+	g := transports.NewgRPCServer(endp)
+
+	demo.RegisterGreeterServer(server, g)
+	logger.Log("gRPC server is running on port 3000")
 	if err := server.Serve(listener); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+		panic(err)
 	}
 
-	fmt.Println("hello world")
 }
-
-type GreeterServer struct {
-}
-
-func (g *GreeterServer) SayHello(ctx context.Context, req *demo.HelloRequest) (*demo.HelloResponse, error) {
-	return &demo.HelloResponse{Greeting: "hello" + req.Name}, nil
-}
-
-//func (g *GreeterServer) mustEmbedUnimplementedGreeterServer() {
-//	// do nothing
-//}
